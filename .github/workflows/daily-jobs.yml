@@ -1,0 +1,101 @@
+name: Daily job alerts
+
+on:
+  schedule:
+    - cron: "30 2 * * *"          # 02:30 UTC = 08:00 IST, every day (GitHub may start it a few minutes late)
+  workflow_dispatch:               # "Run workflow" button on the Actions tab
+    inputs:
+      max_age_days:
+        description: "Look back this many days (use 7 for the very first run)"
+        required: false
+        default: "3"
+      send_telegram:
+        description: "Send the Telegram message"
+        type: boolean
+        default: true
+  push:                            # website edits → redeploy only (no job fetch, no message)
+    branches: [main]
+    paths: ["docs/**", "!docs/data/**"]
+
+permissions:
+  contents: write                  # commit docs/data/jobs.json
+  pages: write                     # publish the website
+  id-token: write
+
+concurrency:
+  group: daily-jobs
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Fetch and filter jobs
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          MAX_AGE_DAYS: ${{ inputs.max_age_days }}
+        run: python scripts/fetch_jobs.py
+
+      - name: Save jobs.json to the repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/jobs.json
+          if git diff --staged --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Jobs update $(TZ=Asia/Kolkata date +'%Y-%m-%d %H:%M') IST"
+          git pull --rebase origin main
+          git push
+
+      - name: Telegram alert if the run failed
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python scripts/notify.py --failure "today's job search run failed"
+
+  deploy:
+    needs: fetch
+    if: always() && (needs.fetch.result == 'success' || needs.fetch.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main                # includes the jobs.json committed above
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - uses: actions/setup-python@v6
+        if: needs.fetch.result == 'success'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Send Telegram digest
+        if: needs.fetch.result == 'success' && (github.event_name == 'schedule' || inputs.send_telegram)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          pip install -r requirements.txt
+          python scripts/notify.py

@@ -1,0 +1,34 @@
+{
+  "_help": "Company career pages checked directly (most trusted jobs). Set enabled=false to skip one. Supported ats: workday, greenhouse, lever, smartrecruiters.",
+
+  "_workday_help": "Workday sites block fast callers, so: one combined search per company, a pause between calls, and a total time budget for the whole Workday step.",
+  "workday_queries": ["tester OR testing OR QA OR UAT OR validation OR support Hyderabad"],
+  "workday_pages": 2,
+  "workday_pause_seconds": 3,
+  "workday_budget_seconds": 420,
+
+  "smartrecruiters_queries": ["test", "QA", "validation", "support"],
+
+  "companies": [
+    { "name": "Novartis",          "ats": "workday", "tenant": "novartis",           "wd": "wd3",  "site": "Novartis_Careers",          "enabled": true },
+    { "name": "Sanofi",            "ats": "workday", "tenant": "sanofi",             "wd": "wd3",  "site": "SanofiCareers",             "enabled": true },
+    { "name": "Amgen",             "ats": "workday", "tenant": "amgen",              "wd": "wd1",  "site": "Careers",                   "enabled": true },
+    { "name": "IQVIA",             "ats": "workday", "tenant": "iqvia",              "wd": "wd1",  "site": "IQVIA",                     "enabled": true },
+    { "name": "Parexel",           "ats": "workday", "tenant": "parexel",            "wd": "wd1",  "site": "Parexel_External_Careers",  "enabled": true },
+    { "name": "Thermo Fisher",     "ats": "workday", "tenant": "thermofisher",       "wd": "wd5",  "site": "ThermoFisherCareers",       "enabled": true },
+    { "name": "MSD",               "ats": "workday", "tenant": "msd",                "wd": "wd5",  "site": "SearchJobs",                "enabled": true },
+    { "name": "Evernorth (Cigna)", "ats": "workday", "tenant": "cigna",              "wd": "wd5",  "site": "cignacareers",              "enabled": true },
+    { "name": "Invesco",           "ats": "workday", "tenant": "invesco",            "wd": "wd1",  "site": "IVZ",                       "enabled": true },
+    { "name": "Salesforce",        "ats": "workday", "tenant": "salesforce",         "wd": "wd12", "site": "External_Career_Site",      "enabled": true },
+    { "name": "Bristol Myers Squibb", "ats": "workday", "tenant": "bristolmyerssquibb", "wd": "wd5", "site": "BMS",                     "enabled": true },
+    { "name": "Eli Lilly",         "ats": "workday", "tenant": "lilly",              "wd": "wd5",  "site": "LLY",                       "enabled": true },
+    { "name": "Medtronic",         "ats": "workday", "tenant": "medtronic",          "wd": "wd1",  "site": "MedtronicCareers",          "enabled": true },
+    { "name": "Zoetis",            "ats": "workday", "tenant": "zoetis",             "wd": "wd5",  "site": "zoetis",                    "enabled": true },
+
+    { "name": "Veeva Systems",     "ats": "lever",           "slug": "veeva",       "enabled": true },
+    { "name": "Zenoti",            "ats": "greenhouse",      "slug": "zenoti",      "enabled": true },
+    { "name": "HighRadius",        "ats": "greenhouse",      "slug": "highradius",  "enabled": true },
+    { "name": "ServiceNow",        "ats": "smartrecruiters", "slug": "ServiceNow",  "enabled": true },
+    { "name": "Bosch",             "ats": "smartrecruiters", "slug": "BoschGroup",  "enabled": true }
+  ]
+}

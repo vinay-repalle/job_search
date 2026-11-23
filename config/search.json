@@ -1,0 +1,96 @@
+{
+  "_help": "What counts as a matching job. Patterns are case-insensitive regular expressions; '|' means OR.",
+
+  "max_age_days": 3,
+  "retention_days": 30,
+  "telegram_top_n": 10,
+
+  "experience": {
+    "_help": "Drop jobs whose MINIMUM required experience is above this. Jobs that don't mention experience are kept.",
+    "max_min_years": 4
+  },
+
+  "jsearch": {
+    "_help": "Free plan = 200 calls/month. Each query below = 1 call per day (5/day ≈ 150/month).",
+    "date_posted": "today",
+    "queries": [
+      { "query": "manual testing jobs in Hyderabad" },
+      { "query": "QA analyst UAT tester jobs in Hyderabad" },
+      { "query": "application support production support jobs in Hyderabad" },
+      { "query": "computer system validation CSV GxP jobs in Hyderabad" },
+      { "query": "software tester work from home India", "remote": true }
+    ]
+  },
+
+  "roles": {
+    "qa": {
+      "label": "QA / Testing",
+      "title": "\\btest(?:er|ers|ing)?\\b|\\bqa\\b|quality assurance|quality analyst|quality engineer|\\buat\\b|\\bsdet\\b",
+      "needs_signals": 2,
+      "strong_title": "\\btest(?:er|ers|ing)?\\b|\\bsdet\\b|\\buat\\b|software|application|\\bweb\\b|mobile"
+    },
+    "support": {
+      "label": "App Support",
+      "title": "application support|production support|\\bapp support|support (?:engineer|analyst|specialist|executive)|application (?:analyst|specialist)|\\bl[123] support|it support analyst",
+      "needs_signals": 1
+    },
+    "validation": {
+      "label": "CSV / Validation",
+      "title": "computer systems? validation|\\bcsv\\b|validation (?:engineer|analyst|specialist|associate|consultant|executive)|\\bgxp\\b|it (?:quality|compliance)|qualification (?:engineer|specialist)",
+      "needs_it_signals": 2
+    }
+  },
+
+  "title_exclude": "\\bsenior\\b|\\bsr\\.?\\b|\\blead\\b|manager|\\bprincipal\\b|architect|director|\\bhead\\b|\\bstaff\\b|\\bvp\\b|\\b(?:iii|iv)\\b|\\b(?:lmts|smts|pmts)\\b|\\bintern(?:ship)?\\b|trainee|\\bexpert\\b",
+
+  "non_it_title": "chemist|microbiolog|\\bipqa\\b|\\bqc\\b|production officer|warehouse|hplc|formulation|customer (?:support|service|care)|\\bvoice\\b|\\bbpo\\b|chat support|desktop support|field support|\\bsales\\b|teacher|faculty|\\btutor|\\btrainer\\b|\\btraining\\b|process validation|cleaning validation|method validation|analytical|equipment|sterility|\\bcivil\\b|mechanical|electrical",
+
+  "software_signals": "software|\\bapplication|\\bweb\\b|mobile app|\\bapi\\b|\\bsql\\b|\\bjira\\b|selenium|playwright|cypress|test cases?|test plans?|test scenarios?|\\bsdlc\\b|\\bstlc\\b|\\bagile\\b|\\bscrum\\b|defects?|\\bbugs?\\b|regression|functional testing|\\buat\\b|postman|automation|ci/cd|\\brelease\\b|\\blogs?\\b|incident|\\bitil\\b|servicenow|linux|unix",
+
+  "it_signals": "computer system|\\bcsv\\b|21 cfr|part 11|\\bgamp\\b|software|\\bapplication|\\blims\\b|\\bsap\\b|veeva|(?-i:\\bIT\\b)|data integrity|\\berp\\b|\\bmes\\b|\\bqms\\b|trackwise|labware|empower|servicenow|\\balm\\b|test scripts?|iq\\s*/\\s*oq|oq\\s*/\\s*pq|\\burs\\b|\\bfrs\\b|\\bcsa\\b",
+
+  "locations": {
+    "local": "hyderabad|secunderabad|telangana|hitec|gachibowli|madhapur|kondapur|raidurg|financial district|nanakramguda|kokapet|manikonda",
+    "india": "india"
+  },
+
+  "work_mode": {
+    "remote_short": "\\bremote\\b|work from home|work-from-home|\\bwfh\\b",
+    "remote_long": "fully remote|100% remote|remote[- ](?:first|role|position|job|opportunity|based|working)|work from home|work-from-home|\\bwfh\\b",
+    "hybrid": "\\bhybrid\\b(?! cloud| app| mobile| framework| automation| test)",
+    "office": "work from office|\\bwfo\\b|on[- ]?site|in[- ]office|office[- ]based|days (?:from|in|at) (?:the )?office"
+  },
+
+  "shift_pattern": "rotational shifts?|rotating shifts?|night shifts?|24\\s*[x/*]\\s*7|\\b(?:us|uk) shifts?|on[- ]call|weekend support|graveyard",
+
+  "scam_pattern": "registration fee|registration charges|security deposit|processing fee|training fee|refundable (?:fee|deposit|amount)|pay (?:rs\\.?|₹|inr) ?\\d|job guarantee|100% placement|placement guarantee|guaranteed (?:job|placement)|no interview|whatsapp (?:your|us|cv|resume)|(?:cv|resume) (?:on|to|via) whatsapp|contact (?:on|via) telegram",
+
+  "trusted_boards": ["LinkedIn", "Naukri", "Indeed", "Glassdoor", "Foundit", "Monster", "Instahyre", "Hirist", "Cutshort", "Wellfound", "iimjobs", "Shine", "TimesJobs", "Built In", "Apna"],
+
+  "skills": {
+    "Manual testing": "manual testing|manual test",
+    "Automation": "automation",
+    "Selenium": "selenium",
+    "Playwright": "playwright",
+    "API testing": "api testing|\\brest api|postman",
+    "SQL": "\\bsql\\b",
+    "JIRA": "\\bjira\\b",
+    "UAT": "\\buat\\b|user acceptance",
+    "Agile": "\\bagile\\b|\\bscrum\\b",
+    "Log analysis": "log analysis|\\blogs?\\b",
+    "ITIL": "\\bitil\\b",
+    "ServiceNow": "servicenow",
+    "Linux": "linux|unix",
+    "GxP": "\\bgxp\\b|\\bgmp\\b",
+    "CSV": "computer systems? validation|\\bcsv\\b",
+    "21 CFR Part 11": "21 cfr|part 11",
+    "GAMP 5": "\\bgamp",
+    "LIMS": "\\blims\\b",
+    "SAP": "\\bsap\\b",
+    "Veeva": "veeva",
+    "Java": "\\bjava\\b",
+    "Python": "python"
+  },
+
+  "my_skills": ["Manual testing", "UAT", "SQL", "JIRA", "Log analysis", "GxP", "CSV", "Linux", "ITIL"]
+}
