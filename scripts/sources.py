@@ -66,37 +66,48 @@ class WorkdayClient:
     """Workday blocks fast callers (HTTP 429) across all its customer sites, so calls are
     paced, retried a couple of times, and the whole Workday step has a time budget."""
 
-    def __init__(self, session: requests.Session, pause: float = 3.0, budget_seconds: float = 420):
+    MAX_PAUSE = 20.0
+
+    def __init__(self, session: requests.Session, pause: float = 8.0, budget_seconds: float = 600,
+                 cooldown: float = 45.0, max_details: int = 25):
         self.s = session
         self.pause = pause
+        self.cooldown = cooldown
+        self.details_left = max_details
         self.deadline = time.monotonic() + budget_seconds
 
     def out_of_time(self) -> bool:
         return time.monotonic() > self.deadline
 
-    def call(self, method: str, url: str, attempts: int = 3, **kw):
+    def call(self, method: str, url: str, attempts: int = 2, **kw):
         last = None
         for attempt in range(attempts):
             if self.out_of_time():
                 raise SourceError("skipped (Workday time budget used up)")
+            retry_left = attempt < attempts - 1
             try:
                 r = self.s.request(method, url, timeout=30, **kw)
             except requests.RequestException as e:
                 last = f"{e.__class__.__name__} (busy)"
-                time.sleep(5)
+                if retry_left:
+                    time.sleep(self.cooldown)
                 continue
             time.sleep(self.pause)
             if r.status_code == 429 or r.status_code >= 500:
                 last = f"HTTP {r.status_code} (busy)"
-                time.sleep(12 * (attempt + 1))
+                # Being told "too fast": go slower for the rest of the run, then wait it out once.
+                self.pause = min(self.pause * 1.5, self.MAX_PAUSE)
+                if retry_left:
+                    time.sleep(self.cooldown)
                 continue
             if not r.ok:
                 raise SourceError(f"HTTP {r.status_code}")
             try:
                 return r.json()
             except ValueError:
-                last = "non-JSON reply"
-                time.sleep(12 * (attempt + 1))
+                last = "non-JSON reply (busy)"
+                if retry_left:
+                    time.sleep(self.cooldown)
         raise SourceError(last or "failed")
 
 
@@ -144,10 +155,13 @@ def fetch_workday(co: dict, queries: list[str], pages: int, client: WorkdayClien
 
 def _workday_detail(job: RawJob, client: WorkdayClient, url: str) -> Callable[[], None]:
     def load() -> None:
-        # Detail calls get extra time beyond the search budget, but only one retry each.
-        client.deadline = max(client.deadline, time.monotonic() + 30)
+        # Detail pages: capped in number, a little extra time each, no retry if Workday is busy.
+        if client.details_left <= 0:
+            return
+        client.details_left -= 1
+        client.deadline = max(client.deadline, time.monotonic() + 40)
         try:
-            info = (client.call("GET", url, attempts=2) or {}).get("jobPostingInfo") or {}
+            info = (client.call("GET", url, attempts=1) or {}).get("jobPostingInfo") or {}
         except SourceError:
             return
         job.description = html_to_text(info.get("jobDescription"))

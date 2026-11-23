@@ -45,8 +45,11 @@ def collect(companies: dict, search: dict, only: set, jsearch_limit: int | None,
     if workday:
         shift = now.toordinal() % len(workday)
         workday = workday[shift:] + workday[:shift]
-    wd_client = WorkdayClient(make_session(), companies.get("workday_pause_seconds", 3.0),
-                              companies.get("workday_budget_seconds", 420))
+    wd_client = WorkdayClient(make_session(),
+                              pause=companies.get("workday_pause_seconds", 8),
+                              budget_seconds=companies.get("workday_budget_seconds", 600),
+                              cooldown=companies.get("workday_cooldown_seconds", 45),
+                              max_details=companies.get("workday_max_detail_pages", 25))
 
     skipped = []
     for co in others + workday:

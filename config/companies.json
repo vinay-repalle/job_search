@@ -1,11 +1,13 @@
 {
   "_help": "Company career pages checked directly (most trusted jobs). Set enabled=false to skip one. Supported ats: workday, greenhouse, lever, smartrecruiters.",
 
-  "_workday_help": "Workday sites block fast callers, so: one combined search per company, a pause between calls, and a total time budget for the whole Workday step.",
+  "_workday_help": "Workday sites block fast callers, so: one search per company, a long pause between calls (grows if Workday says 'busy'), a 45s wait-and-retry when busy, a cap on job-detail page visits, and a total time budget for the whole Workday step.",
   "workday_queries": ["tester OR testing OR QA OR UAT OR validation OR support Hyderabad"],
-  "workday_pages": 2,
-  "workday_pause_seconds": 3,
-  "workday_budget_seconds": 420,
+  "workday_pages": 1,
+  "workday_pause_seconds": 8,
+  "workday_cooldown_seconds": 45,
+  "workday_budget_seconds": 600,
+  "workday_max_detail_pages": 25,
 
   "smartrecruiters_queries": ["test", "QA", "validation", "support"],
 

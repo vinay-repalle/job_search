@@ -30,7 +30,7 @@ jobs:
   fetch:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
 
