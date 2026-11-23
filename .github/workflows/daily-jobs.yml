@@ -61,7 +61,7 @@ jobs:
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          QA_JOB_SEARCH_TELEGRAM_CHAT_ID: ${{ secrets.QA_JOB_SEARCH_TELEGRAM_CHAT_ID }}
         run: python scripts/notify.py --failure "today's job search run failed"
 
   deploy:
@@ -95,7 +95,7 @@ jobs:
         if: needs.fetch.result == 'success' && (github.event_name == 'schedule' || inputs.send_telegram)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          QA_JOB_SEARCH_TELEGRAM_CHAT_ID: ${{ secrets.QA_JOB_SEARCH_TELEGRAM_CHAT_ID }}
         run: |
           pip install -r requirements.txt
           python scripts/notify.py

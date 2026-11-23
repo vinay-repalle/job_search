@@ -33,7 +33,7 @@ docs/data/jobs.json         the job list (updated automatically every day — do
 
 1. **Secrets:** repo → **Settings → Secrets and variables → Actions → New repository secret**. Add three:
    - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID` (the group's id, a negative number)
+   - `QA_JOB_SEARCH_TELEGRAM_CHAT_ID` (the group's id, a negative number — same name as in `.env`)
    - `RAPIDAPI_KEY`
 2. **Website:** **Settings → Pages → Build and deployment → Source: “GitHub Actions”**.
 3. **Push the code** (this publishes the site; it shows "waiting for the first daily run" until step 4).
@@ -79,7 +79,7 @@ Local runs read keys from `.env`.
 | Problem | Fix |
 |---|---|
 | No Telegram message | Actions tab → open the latest run → read the red step. Check the 3 secrets are spelled exactly. |
-| `Telegram refused… group upgraded` | Telegram changed the group id; the log prints the new one — update `TELEGRAM_CHAT_ID`. |
+| `Telegram refused… group upgraded` | Telegram changed the group id; the log prints the new one — update `QA_JOB_SEARCH_TELEGRAM_CHAT_ID`. |
 | `JSearch … HTTP 429` | Free monthly calls used up; resets monthly. Company pages keep working meanwhile. |
 | A company shows ✗ in the log | Its career site was busy or changed. Others still run. If it fails for days, set `"enabled": false`. |
 | Schedule stopped running | GitHub pauses schedules on repos with no activity for 60 days; Actions tab → enable the workflow again. |

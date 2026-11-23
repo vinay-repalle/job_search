@@ -76,9 +76,9 @@ def build_digest(data: dict, top_n: int, test: bool) -> str:
 
 def send(text: str) -> bool:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    chat_id = os.environ.get("QA_JOB_SEARCH_TELEGRAM_CHAT_ID")
     if not token or not chat_id:
-        print("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set — nothing sent.")
+        print("TELEGRAM_BOT_TOKEN / QA_JOB_SEARCH_TELEGRAM_CHAT_ID not set — nothing sent.")
         return False
     try:
         r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30, json={
@@ -94,7 +94,7 @@ def send(text: str) -> bool:
         return True
     new_id = (res.get("parameters") or {}).get("migrate_to_chat_id")
     if new_id:
-        print(f"The group was upgraded by Telegram. New chat id: {new_id} — update TELEGRAM_CHAT_ID.")
+        print(f"The group was upgraded by Telegram. New chat id: {new_id} — update QA_JOB_SEARCH_TELEGRAM_CHAT_ID.")
     else:
         print(f"Telegram refused the message: {res.get('description')}")
     return False
