@@ -3,11 +3,13 @@
 
   "_workday_help": "Workday sites block fast callers, so: one search per company, a long pause between calls (grows if Workday says 'busy'), a 45s wait-and-retry when busy, a cap on job-detail page visits, and a total time budget for the whole Workday step.",
   "workday_queries": ["tester OR testing OR QA OR UAT OR validation OR support Hyderabad"],
+  "workday_companies_per_day": 5,
+  "workday_max_age_days": 7,
   "workday_pages": 1,
   "workday_pause_seconds": 8,
   "workday_cooldown_seconds": 45,
-  "workday_budget_seconds": 600,
-  "workday_max_detail_pages": 25,
+  "workday_budget_seconds": 420,
+  "workday_max_detail_pages": 20,
 
   "smartrecruiters_queries": ["test", "QA", "validation", "support"],
 

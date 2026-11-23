@@ -41,7 +41,7 @@ docs/data/jobs.json         the job list (updated automatically every day — do
    **https://vinay-repalle.github.io/job_search/**
 5. From then on it runs by itself every day at 8 AM IST.
 
-> Workday career sites (the pharma companies) block callers who ask too fast. The script makes one search per company, waits 8+ seconds between calls (longer if Workday says "busy"), caps job-detail visits and gives Workday at most ~10 minutes a day; companies it couldn't reach are listed as "skipped" in the log and tried again the next day (the rotation changes daily). Most of their openings also reach us through JSearch/Google Jobs.
+> Workday career sites (the pharma companies) block a network address for hours once it asks too often. So the script checks only **5 Workday companies per day in rotation** (all 14 every ~3 days), accepts their jobs up to 7 days old, waits 8+ seconds between calls, and **stops Workday for the day after 2 "busy" replies**. Skipped companies are listed in the run log and come round again in a few days. Most of their openings also reach us through JSearch/Google Jobs, which is the main source.
 
 ## Installing the app on her phone
 

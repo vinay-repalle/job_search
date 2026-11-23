@@ -32,6 +32,7 @@ class RawJob:
     apply_options: list = field(default_factory=list)   # [{"name", "url", "direct"}]
     detail: Callable[[], None] | None = None
     detail_done: bool = False
+    max_age_days: int | None = None  # per-source override (Workday companies are checked every few days)
 
     def load_detail(self) -> None:
         if self.detail and not self.detail_done:
@@ -111,7 +112,8 @@ class WorkdayClient:
         raise SourceError(last or "failed")
 
 
-def fetch_workday(co: dict, queries: list[str], pages: int, client: WorkdayClient, now: datetime) -> list[RawJob]:
+def fetch_workday(co: dict, queries: list[str], pages: int, client: WorkdayClient, now: datetime,
+                  max_age_days: int | None = None) -> list[RawJob]:
     tenant, wd, site, name = co["tenant"], co["wd"], co["site"], co["name"]
     base = f"https://{tenant}.{wd}.myworkdayjobs.com"
     api = f"{base}/wday/cxs/{tenant}/{site}"
@@ -142,6 +144,7 @@ def fetch_workday(co: dict, queries: list[str], pages: int, client: WorkdayClien
                     source="Company site",
                     posted_at=workday_posted(p.get("postedOn", ""), now),
                     mode_hint=p.get("remoteType", "") or "",
+                    max_age_days=max_age_days,
                 )
                 job.detail = _workday_detail(job, client, f"{api}{path}")
                 jobs.append(job)

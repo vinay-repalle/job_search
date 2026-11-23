@@ -38,13 +38,16 @@ def collect(companies: dict, search: dict, only: set, jsearch_limit: int | None,
 
     enabled = [co for co in companies["companies"]
                if co.get("enabled", True) and (not only or co["ats"] in only)]
-    # Fast sources first; Workday last (slow, rate-limited) and rotated daily so every
-    # company gets the front of the queue every few days even if the time budget runs out.
+    # Fast sources first. Workday sites block busy callers for hours, so only a few Workday
+    # companies are checked per day, in rotation (all of them every few days).
     others = [co for co in enabled if co["ats"] != "workday"]
     workday = [co for co in enabled if co["ats"] == "workday"]
+    per_day = companies.get("workday_companies_per_day", 5)
     if workday:
-        shift = now.toordinal() % len(workday)
-        workday = workday[shift:] + workday[:shift]
+        start = (now.toordinal() * per_day) % len(workday)
+        rotated = workday[start:] + workday[:start]
+        workday = rotated[:per_day]
+        log(f"  Workday companies today: {', '.join(co['name'] for co in workday)}")
     wd_client = WorkdayClient(make_session(),
                               pause=companies.get("workday_pause_seconds", 8),
                               budget_seconds=companies.get("workday_budget_seconds", 600),
@@ -52,14 +55,18 @@ def collect(companies: dict, search: dict, only: set, jsearch_limit: int | None,
                               max_details=companies.get("workday_max_detail_pages", 25))
 
     skipped = []
+    busy_streak = 0
     for co in others + workday:
-        if co["ats"] == "workday" and wd_client.out_of_time():
+        if co["ats"] == "workday" and (wd_client.out_of_time() or busy_streak >= 2):
             skipped.append(co["name"])
-            log(f"  – {co['name']:<22} skipped today (Workday time budget used up)")
+            why = "Workday is busy today" if busy_streak >= 2 else "Workday time budget used up"
+            log(f"  – {co['name']:<22} skipped ({why}; tried again in a few days)")
             continue
         try:
             if co["ats"] == "workday":
-                got = fetch_workday(co, companies["workday_queries"], companies.get("workday_pages", 1), wd_client, now)
+                got = fetch_workday(co, companies["workday_queries"], companies.get("workday_pages", 1), wd_client,
+                                    now, companies.get("workday_max_age_days", 7))
+                busy_streak = 0
             elif co["ats"] == "greenhouse":
                 got = fetch_greenhouse(co, session)
             elif co["ats"] == "lever":
@@ -73,7 +80,8 @@ def collect(companies: dict, search: dict, only: set, jsearch_limit: int | None,
             log(f"  ✓ {co['name']:<22} {len(got):>4} postings")
         except Exception as e:                      # one broken site must not stop the run
             if co["ats"] == "workday" and ("busy" in str(e) or "budget" in str(e)):
-                skipped.append(co["name"])          # normal for Workday; retried tomorrow
+                skipped.append(co["name"])          # normal for Workday; retried on its next turn
+                busy_streak += 1
                 log(f"  – {co['name']:<22} busy, skipped today")
             else:
                 errors.append(f"{co['name']}: {e}")
@@ -98,8 +106,14 @@ def collect(companies: dict, search: dict, only: set, jsearch_limit: int | None,
     return raw, errors, skipped, per_source, remaining
 
 
-def filter_jobs(raw, rules: Rules, cutoff, now, verbose: bool):
+def filter_jobs(raw, rules: Rules, max_age: int, now, verbose: bool):
     kept, dropped = [], Counter()
+
+    def too_old(job) -> bool:
+        if not job.posted_at:
+            return False
+        days = max(max_age, job.max_age_days or 0)
+        return job.posted_at < now - timedelta(days=days, hours=12)   # 12h grace for day rounding
 
     def drop(reason, job):
         dropped[reason] += 1
@@ -111,14 +125,14 @@ def filter_jobs(raw, rules: Rules, cutoff, now, verbose: bool):
         if not group:
             drop("title", job)
             continue
-        if job.posted_at and job.posted_at < cutoff:
+        if too_old(job):
             drop("old", job)
             continue
         if not rules.location_maybe(job):
             drop("location", job)
             continue
         job.load_detail()                           # extra call only for promising jobs
-        if job.posted_at and job.posted_at < cutoff:
+        if too_old(job):
             drop("old", job)
             continue
         if rules.is_scam(job):
@@ -177,7 +191,6 @@ def main() -> int:
     only = {s.strip() for s in args.only.split(",")} if args.only else set()
     max_age = args.max_age_days or int(os.environ.get("MAX_AGE_DAYS") or 0) or search["max_age_days"]
     now = now_utc()
-    cutoff = now - timedelta(days=max_age, hours=12)
 
     log(f"Fetching jobs (posted in the last {max_age} days)…")
     raw, errors, skipped, per_source, remaining = collect(companies, search, only, args.jsearch_limit, now,
@@ -187,7 +200,7 @@ def main() -> int:
         return 1
 
     log(f"\nFiltering {len(raw)} postings…")
-    kept, dropped = filter_jobs(raw, rules, cutoff, now, args.verbose)
+    kept, dropped = filter_jobs(raw, rules, max_age, now, args.verbose)
     found = dedupe(kept)
 
     previous = load_json(JOBS_FILE, {})
