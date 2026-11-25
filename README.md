@@ -5,7 +5,7 @@ Every morning at **8:00 AM IST** this repo:
 1. Collects fresh openings for **QA / Manual Testing**, **Application / Production Support** and **CSV / GxP Validation** roles.
 2. Keeps only **Hyderabad** jobs (any work mode) and **remote jobs in India**, asking for **≤ 4 years** of experience.
 3. Hides scam-looking posts (registration fees, "pay to apply", WhatsApp-only contact) and flags night/rotational-shift jobs.
-4. Updates the website (installable phone app) and sends a **Telegram digest** with the top new jobs.
+4. Updates the website (installable phone app) and sends a daily digest of the top new jobs by **email** and **Telegram** (whichever is set up).
 
 No LinkedIn/Naukri scraping, no AI key, no paid services.
 
@@ -22,7 +22,7 @@ No LinkedIn/Naukri scraping, no AI key, no paid services.
 config/search.json          what counts as a match: role keywords, experience, scam & shift words, JSearch queries
 config/companies.json       company career pages to check (set "enabled": false to skip one)
 scripts/fetch_jobs.py       daily fetch → filter → de-duplicate → docs/data/jobs.json
-scripts/notify.py           sends the Telegram digest
+scripts/notify.py           sends the daily digest (email + Telegram)
 docs/                       the website (installable app), served by GitHub Pages
 docs/data/jobs.json         the job list (updated automatically every day — don't edit by hand)
 .github/workflows/daily-jobs.yml   the 8 AM schedule
@@ -31,10 +31,12 @@ docs/data/jobs.json         the job list (updated automatically every day — do
 
 ## One-time setup (GitHub)
 
-1. **Secrets:** repo → **Settings → Secrets and variables → Actions → New repository secret**. Add three:
-   - `TELEGRAM_BOT_TOKEN`
-   - `QA_JOB_SEARCH_TELEGRAM_CHAT_ID` (the group's id, a negative number — same name as in `.env`)
+1. **Secrets:** repo → **Settings → Secrets and variables → Actions → New repository secret**. Add (same names as in `.env`):
    - `RAPIDAPI_KEY`
+   - Email: `SMTP_USER` (sending Gmail), `SMTP_PASSWORD` (its 16-letter **App Password**, no spaces), `EMAIL_TO` (her address), optionally `EMAIL_BCC` (you — gets a hidden copy, plus failure alerts)
+   - Telegram: `TELEGRAM_BOT_TOKEN`, `QA_JOB_SEARCH_TELEGRAM_CHAT_ID` (the group's id, a negative number)
+
+   Each channel is used only if its secrets exist. The email is skipped on days with no new jobs, and lists the top 10 new ones with ★ good matches first.
 2. **Website:** **Settings → Pages → Build and deployment → Source: “GitHub Actions”**.
 3. **Push the code** (this publishes the site; it shows "waiting for the first daily run" until step 4).
 4. **First run:** **Actions → Daily job alerts → Run workflow**, set *Look back* to `7`, click **Run workflow**. Takes ~5–10 minutes. You get a Telegram message and the site fills up at
@@ -77,8 +79,9 @@ Commit and push; the next run uses the new settings.
 pip install -r requirements.txt
 python scripts/fetch_jobs.py --jsearch-limit 0 -v   # company pages only (saves JSearch calls), shows every kept/dropped job
 python scripts/fetch_jobs.py                        # full run (uses 5 JSearch calls)
-python scripts/notify.py --preview                  # print the Telegram message
-python scripts/notify.py --test                     # send it, marked as a test
+python scripts/notify.py --preview                  # print the messages (email HTML saved to a temp file)
+python scripts/notify.py --test                     # send, marked as a test — the email goes ONLY to EMAIL_BCC (you)
+python scripts/notify.py --test --only email        # just one channel: telegram | email
 python -m http.server -d docs 8000                  # view the app at http://localhost:8000
 ```
 
@@ -88,7 +91,9 @@ Local runs read keys from `.env`.
 
 | Problem | Fix |
 |---|---|
-| No Telegram message | Actions tab → open the latest run → read the red step. Check the 3 secrets are spelled exactly. |
+| No Telegram message / email | Actions tab → open the latest run → read the red step. Check the secrets are spelled exactly. |
+| `Gmail refused the login` | `SMTP_PASSWORD` must be the App Password (myaccount.google.com/apppasswords), not the normal password; 2-Step Verification must be on. |
+| Email lands in Spam / Promotions | In her inbox: mark it **Not spam** and add the sender to contacts once. |
 | `Telegram refused… group upgraded` | Telegram changed the group id; the log prints the new one — update `QA_JOB_SEARCH_TELEGRAM_CHAT_ID`. |
 | `JSearch … HTTP 429` | Free monthly calls used up; resets monthly. Company pages keep working meanwhile. |
 | A company shows ✗ in the log | Its career site was busy or changed. Others still run. If it fails for days, set `"enabled": false`. |

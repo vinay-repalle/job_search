@@ -9,8 +9,8 @@ on:
         description: "Look back this many days (use 7 for the very first run)"
         required: false
         default: "3"
-      send_telegram:
-        description: "Send the Telegram message"
+      send_digest:
+        description: "Send the daily digest (Telegram + email)"
         type: boolean
         default: true
   push:                            # website edits → redeploy only (no job fetch, no message)
@@ -57,11 +57,15 @@ jobs:
           git pull --rebase origin main
           git push
 
-      - name: Telegram alert if the run failed
+      - name: Alert if the run failed (Telegram + email to EMAIL_BCC only)
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           QA_JOB_SEARCH_TELEGRAM_CHAT_ID: ${{ secrets.QA_JOB_SEARCH_TELEGRAM_CHAT_ID }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_BCC: ${{ secrets.EMAIL_BCC }}
         run: python scripts/notify.py --failure "today's job search run failed"
 
   deploy:
@@ -91,11 +95,15 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Send Telegram digest
-        if: needs.fetch.result == 'success' && (github.event_name == 'schedule' || inputs.send_telegram)
+      - name: Send daily digest (Telegram + email)
+        if: needs.fetch.result == 'success' && (github.event_name == 'schedule' || inputs.send_digest)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           QA_JOB_SEARCH_TELEGRAM_CHAT_ID: ${{ secrets.QA_JOB_SEARCH_TELEGRAM_CHAT_ID }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_BCC: ${{ secrets.EMAIL_BCC }}
         run: |
           pip install -r requirements.txt
           python scripts/notify.py

@@ -25,7 +25,11 @@ def load_env(path: Path = ROOT / ".env") -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if value[:1] in ('"', "'"):
+            value = value.strip('"').strip("'")
+        else:
+            value = re.split(r"\s+#", value, maxsplit=1)[0].strip()   # drop "  # comment" at the end of a line
         if value:
             os.environ.setdefault(key.strip(), value)
 
