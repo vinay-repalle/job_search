@@ -1,10 +1,15 @@
 // Offline support: app files load from cache instantly (and refresh in the background);
 // the jobs list always tries the network first so it's fresh, falling back to the last copy.
-const CACHE = 'qa-jobs-v1';
+// Bump CACHE whenever index.html / app.js / styles.css change, so phones switch to the new version.
+const CACHE = 'qa-jobs-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (event) => {

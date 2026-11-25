@@ -6,12 +6,19 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
-  "background_color": "#f6f6fb",
-  "theme_color": "#4f46e5",
+  "background_color": "#f5f5f8",
+  "theme_color": "#ffffff",
+  "categories": ["business", "productivity"],
+  "launch_handler": { "client_mode": "focus-existing" },
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Saved jobs", "short_name": "Saved", "url": "./?tab=saved", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Applied jobs", "short_name": "Applied", "url": "./?tab=applied", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

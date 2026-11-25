@@ -6,6 +6,7 @@ const DEFAULTS = { age: '7', groups: [], modes: [], exp: '99', trust: 'all', hid
 const FALLBACK_GROUPS = { qa: 'QA / Testing', support: 'App Support', validation: 'CSV / Validation' };
 const APPLIED_STATES = ['applied', 'interview', 'offer', 'rejected'];
 const STATE_LABEL = { applied: 'Applied', interview: 'Interview', offer: 'Offer 🎉', rejected: 'Not selected' };
+const TABS = ['jobs', 'saved', 'applied'];
 
 const store = {
   get(key, fallback) {
@@ -31,11 +32,21 @@ const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : '#');
 const groupLabel = (g) => (data?.groups?.[g]) || FALLBACK_GROUPS[g] || g;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /* ---------------- dates ---------------- */
 const DAY = 86400000;
-const refDate = () => data?.run?.date || new Date().toISOString().slice(0, 10);
+const refDate = () => data?.run?.date || localISO();
 const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
+function localISO(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function yesterdayISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return localISO(d);
+}
+const isoToDate = (iso) => new Date(`${iso}T00:00:00`);
 function ago(iso) {
   if (!iso) return '';
   const d = Math.floor((Date.now() - Date.parse(iso)) / DAY);
@@ -46,6 +57,12 @@ function ago(iso) {
 function fmtDate(ms) {
   return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
+function dayName(iso) {
+  if (iso === localISO()) return 'Today';
+  if (iso === yesterdayISO()) return 'Yesterday';
+  return isoToDate(iso).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
+}
+const shortDay = (iso) => isoToDate(iso).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
 /* ---------------- load ---------------- */
 async function load() {
@@ -60,7 +77,8 @@ async function load() {
   } catch {
     if (!data) data = null;
   }
-  jobs = data?.jobs ?? [];
+  jobs = (data?.jobs ?? []).slice().sort((a, b) =>
+    (b.first_seen || '').localeCompare(a.first_seen || '') || (b.score || 0) - (a.score || 0));
   mySkills = new Set(data?.my_skills ?? []);
   loadedAt = Date.now();
   renderHeader();
@@ -128,7 +146,6 @@ function sourceTag(j) {
 
 function card(j, { mode = 'jobs' } = {}) {
   const t = tracker[j.id] || {};
-  const isNew = j.first_seen === data?.run?.date && mode === 'jobs';
   const saved = t.status === 'saved';
   const applied = APPLIED_STATES.includes(t.status);
   const hidden = t.status === 'hidden';
@@ -163,14 +180,13 @@ function card(j, { mode = 'jobs' } = {}) {
   return `
   <article class="card" data-id="${esc(j.id)}">
     <div class="card-top">
-      ${isNew ? '<span class="tag new">NEW</span>' : ''}
       ${sourceTag(j)}
       <span class="tag">${esc(groupLabel(j.group))}</span>
       ${j.shift ? '<span class="tag warn">⚠ Shifts</span>' : ''}
       <span class="age">${esc(ago(j.posted_at) || ('Found ' + fmtDate(Date.parse(j.first_seen))))}</span>
       ${hideBtn}
     </div>
-    <h2>${esc(j.title)}</h2>
+    <h3>${esc(j.title)}</h3>
     <p class="company">${esc(j.company)}</p>
     <ul class="meta">
       <li>${ICON.pin}${esc(j.location)}</li>
@@ -185,8 +201,55 @@ function card(j, { mode = 'jobs' } = {}) {
       ${j.snippet ? `<p class="snippet">${esc(j.snippet)}</p>` : ''}
       ${others ? `<div class="links"><span class="muted">Also on:</span> ${others}</div>` : ''}
     </details>` : ''}
-    ${actions}
+    <div class="card-foot">${actions}</div>
   </article>`;
+}
+
+/* Jobs tab: one section per day the jobs were found, newest day first, so each
+   morning's arrivals sit on top under their own heading and older ones stay below. */
+function daySections(items) {
+  const latest = data?.run?.date;
+  const byDay = new Map();
+  for (const j of items) {
+    if (!byDay.has(j.first_seen)) byDay.set(j.first_seen, []);
+    byDay.get(j.first_seen).push(j);
+  }
+  return [...byDay.entries()].map(([day, list]) => {
+    const isLatest = day === latest;
+    const name = dayName(day);
+    const relative = name === 'Today' || name === 'Yesterday';
+    return `
+    <section class="day ${isLatest ? 'latest' : 'earlier'}" aria-label="${esc(name)}">
+      <h2 class="day-h">
+        ${isLatest ? '<span class="new-pill">NEW</span>' : ''}
+        <span>${esc(isLatest && name === 'Today' ? 'New today' : name)}</span>
+        <span class="day-n">${plural(list.length, 'job')}</span>
+        ${relative ? `<span class="day-date">${esc(shortDay(day))}</span>` : ''}
+      </h2>
+      <div class="grid">${list.map((j) => card(j)).join('')}</div>
+    </section>`;
+  }).join('');
+}
+
+function renderNotice(visible) {
+  const el = $('#notice');
+  const latest = data?.run?.date;
+  let html = '';
+  if (tab === 'jobs' && data?.updated_at && latest) {
+    const newAll = jobs.filter((j) => j.first_seen === latest && tracker[j.id]?.status !== 'hidden').length;
+    const newShown = visible.filter((j) => j.first_seen === latest).length;
+    if (latest !== localISO()) {
+      html = `<span>No new jobs yet today — last check was ${esc(shortDay(latest))}. New jobs arrive every morning around 8 AM.</span>`;
+    } else if (!newAll) {
+      html = '<span>No new jobs found today. Earlier jobs are below.</span>';
+    } else if (newShown < newAll) {
+      const missing = newAll - newShown;
+      html = `<span>${plural(missing, 'new job')} from today ${missing === 1 ? 'is' : 'are'} hidden by your filters or search.</span>
+        <button class="btn small" data-act="reset">Show all</button>`;
+    }
+  }
+  el.innerHTML = html;
+  el.hidden = !html;
 }
 
 function trackedJobs(states) {
@@ -199,6 +262,7 @@ function trackedJobs(states) {
 }
 
 function render() {
+  disarm();
   const list = $('#list');
   const n = activeFilterCount();
   const fc = $('#filterCount');
@@ -211,25 +275,24 @@ function render() {
   $('#cJobs').textContent = visible.length;
   $('#cSaved').textContent = saved.length || '';
   $('#cApplied').textContent = applied.length || '';
+  $('#doneFilters').textContent = visible.length ? `Show ${plural(visible.length, 'job')}` : 'No jobs match — try fewer filters';
 
-  let items, mode = tab, summary = '';
+  let summary = '';
   if (tab === 'jobs') {
-    items = visible;
     summary = data ? `Showing ${visible.length} of ${jobs.length} jobs` + (n ? ' · filters on' : '') : '';
   } else if (tab === 'saved') {
-    items = saved;
     summary = 'Jobs you starred to apply later.';
   } else {
-    items = applied;
-    mode = 'applied';
     summary = 'Update the status as things move along.';
   }
   $('#summary').textContent = summary;
+  renderNotice(visible);
 
   if (!data && tab === 'jobs') {
     list.innerHTML = '<div class="empty"><h2>No connection</h2><p class="muted">Open the app again when you’re online.</p></div>';
     return;
   }
+  const items = tab === 'jobs' ? visible : tab === 'saved' ? saved : applied;
   if (!items.length) {
     const msg = {
       jobs: ['No jobs match', n ? 'Try fewer filters.' : 'New jobs arrive every morning at 8 AM.', n],
@@ -239,8 +302,36 @@ function render() {
     list.innerHTML = `<div class="empty"><h2>${msg[0]}</h2><p class="muted">${msg[1]}</p>${msg[2] ? '<button class="btn" data-act="reset">Reset filters</button>' : ''}</div>`;
     return;
   }
-  list.innerHTML = items.map((j) => card(j, { mode })).join('');
+  list.innerHTML = tab === 'jobs'
+    ? daySections(items)
+    : `<div class="grid">${items.map((j) => card(j, { mode: tab === 'applied' ? 'applied' : 'saved' })).join('')}</div>`;
 }
+
+/* ---------------- tap-twice confirm (only for things that can't easily be undone) ---------------- */
+let armed = null;
+let armTimer;
+function disarm() {
+  clearTimeout(armTimer);
+  if (armed?.isConnected) {
+    armed.innerHTML = armed.dataset.label;
+    armed.classList.remove('armed');
+  }
+  armed = null;
+}
+// First tap turns the button red and asks again; returns true when this tap is the confirming one.
+function confirmed(el, ask) {
+  if (armed === el) { disarm(); return true; }
+  disarm();
+  armed = el;
+  el.dataset.label = el.innerHTML;
+  el.textContent = ask;
+  el.classList.add('armed');
+  armTimer = setTimeout(disarm, 4000);
+  return false;
+}
+document.addEventListener('click', (e) => {
+  if (armed && !armed.contains(e.target)) disarm();
+}, true);
 
 /* ---------------- tracker actions ---------------- */
 function findJob(id) {
@@ -267,14 +358,14 @@ function setStatus(id, status) {
 let toastTimer;
 function toast(msg, actionLabel, action) {
   const el = $('#toast');
-  el.innerHTML = esc(msg) + (actionLabel ? ` <button class="btn small" style="margin-left:8px">${esc(actionLabel)}</button>` : '');
+  el.innerHTML = `<span>${esc(msg)}</span>` + (actionLabel ? ` <button class="btn small" style="margin-left:8px">${esc(actionLabel)}</button>` : '');
   el.hidden = false;
   if (actionLabel) $('button', el).onclick = () => { action(); el.hidden = true; };
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, actionLabel ? 7000 : 2500);
 }
 
-$('#list').addEventListener('click', (e) => {
+function onListClick(e) {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const id = el.dataset.id;
@@ -288,8 +379,16 @@ $('#list').addEventListener('click', (e) => {
       setStatus(id, t?.status === 'saved' ? null : 'saved');
       break;
     case 'applied':
-      if (APPLIED_STATES.includes(t?.status)) { setStatus(id, null); toast('Removed from Applied'); }
-      else { setStatus(id, 'applied'); toast('Added to Applied ✓'); }
+      if (APPLIED_STATES.includes(t?.status)) {
+        // Un-marking loses the applied date and any Interview/Offer status.
+        if (!confirmed(el, 'Tap again to unmark')) return;
+        const prev = { ...t };
+        setStatus(id, null);
+        toast('Removed from Applied', 'Undo', () => { tracker[id] = prev; store.set(KEYS.tracker, tracker); render(); });
+      } else {
+        setStatus(id, 'applied');
+        toast('Added to Applied ✓');
+      }
       break;
     case 'hide': {
       const prev = t?.status || null;
@@ -301,6 +400,7 @@ $('#list').addEventListener('click', (e) => {
       setStatus(id, null);
       break;
     case 'remove': {
+      if (!confirmed(el, 'Tap again to remove')) return;
       const prev = { ...t };
       delete tracker[id];
       store.set(KEYS.tracker, tracker);
@@ -309,10 +409,12 @@ $('#list').addEventListener('click', (e) => {
       break;
     }
     case 'reset':
-      resetFilters();
+      resetFilters({ clearSearch: true });
       break;
   }
-});
+}
+$('#list').addEventListener('click', onListClick);
+$('#notice').addEventListener('click', onListClick);
 
 $('#list').addEventListener('change', (e) => {
   const el = e.target.closest('select[data-act="status"]');
@@ -332,10 +434,15 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ---------------- tabs ---------------- */
-$$('.tabs button').forEach((b) => b.addEventListener('click', () => {
-  tab = b.dataset.tab;
-  $$('.tabs button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+function selectTab(name) {
+  tab = name;
+  document.body.dataset.tab = name;
+  $$('.tabs button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.tab === name)));
   render();
+}
+$$('.tabs button').forEach((b) => b.addEventListener('click', () => {
+  if (tab === b.dataset.tab) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  selectTab(b.dataset.tab);
   window.scrollTo({ top: 0 });
 }));
 
@@ -359,8 +466,9 @@ function saveFilters() {
   render();
 }
 
-function resetFilters() {
+function resetFilters({ clearSearch = false } = {}) {
   filters = { ...DEFAULTS, groups: [], modes: [] };
+  if (clearSearch) { query = ''; $('#q').value = ''; }
   saveFilters();
 }
 
@@ -379,20 +487,108 @@ $$('.chips').forEach((box) => box.addEventListener('click', (e) => {
 }));
 $('#hideShift').addEventListener('change', (e) => { filters.hideShift = e.target.checked; saveFilters(); });
 $('#showHidden').addEventListener('change', (e) => { filters.showHidden = e.target.checked; saveFilters(); });
-$('#resetFilters').addEventListener('click', resetFilters);
+$('#resetFilters').addEventListener('click', () => resetFilters());
 
-function toggleFilters(open) {
-  const panel = $('#filters');
-  panel.hidden = !open;
-  $('#filterBtn').setAttribute('aria-expanded', String(open));
+/* Phones/tablets: filters open as a bottom sheet. It closes on the ✕, on "Show N jobs",
+   on a tap outside, on a swipe down, on Esc, and on the phone's Back button. */
+const sheet = $('#filters');
+const wideScreen = window.matchMedia('(min-width: 1024px)');
+let sheetOpen = false;
+
+function setSheetA11y() {
+  if (wideScreen.matches) {
+    sheet.removeAttribute('role');
+    sheet.removeAttribute('aria-modal');
+    sheet.removeAttribute('inert');
+  } else {
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.toggleAttribute('inert', !sheetOpen);
+  }
 }
-$('#filterBtn').addEventListener('click', () => toggleFilters($('#filters').hidden));
-$('#doneFilters').addEventListener('click', () => { toggleFilters(false); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+function openSheet() {
+  if (sheetOpen || wideScreen.matches) return;
+  sheetOpen = true;
+  document.body.classList.add('sheet-open');
+  $('#filterBtn').setAttribute('aria-expanded', 'true');
+  setSheetA11y();
+  history.pushState({ sheet: true }, '');
+  setTimeout(() => $('#closeFilters').focus({ preventScroll: true }), 50);
+}
+
+function hideSheet() {
+  if (!sheetOpen) return;
+  sheetOpen = false;
+  document.body.classList.remove('sheet-open');
+  $('#filterBtn').setAttribute('aria-expanded', 'false');
+  setSheetA11y();
+  $('#filterBtn').focus({ preventScroll: true });
+}
+
+function closeSheet() {
+  if (!sheetOpen) return;
+  if (history.state?.sheet) history.back();   // popstate below does the hiding
+  else hideSheet();
+}
+
+window.addEventListener('popstate', () => { if (sheetOpen) hideSheet(); });
+$('#filterBtn').addEventListener('click', () => (sheetOpen ? closeSheet() : openSheet()));
+$('#closeFilters').addEventListener('click', closeSheet);
+$('#backdrop').addEventListener('click', closeSheet);
+$('#doneFilters').addEventListener('click', () => {
+  closeSheet();
+  if (tab !== 'jobs') selectTab('jobs');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheetOpen) closeSheet(); });
+wideScreen.addEventListener('change', () => {
+  if (wideScreen.matches && sheetOpen) closeSheet();
+  setSheetA11y();
+});
+
+// Swipe the sheet's top bar down to close it.
+let dragStart = null;
+const head = $('#sheetHead');
+head.addEventListener('touchstart', (e) => {
+  if (!sheetOpen) return;
+  dragStart = e.touches[0].clientY;
+  sheet.style.transition = 'none';
+}, { passive: true });
+head.addEventListener('touchmove', (e) => {
+  if (dragStart == null) return;
+  const dy = Math.max(0, e.touches[0].clientY - dragStart);
+  sheet.style.transform = `translateY(${dy}px)`;
+}, { passive: true });
+function endDrag(e) {
+  if (dragStart == null) return;
+  const dy = (e.changedTouches?.[0]?.clientY ?? dragStart) - dragStart;
+  dragStart = null;
+  sheet.style.transition = '';
+  sheet.style.transform = '';
+  if (dy > 70) closeSheet();
+}
+head.addEventListener('touchend', endDrag);
+head.addEventListener('touchcancel', endDrag);
 
 let searchTimer;
 $('#q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => { query = e.target.value.trim().toLowerCase(); render(); }, 120);
+});
+$('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+
+/* ---------------- refresh ---------------- */
+$('#refreshBtn').addEventListener('click', async () => {
+  const btn = $('#refreshBtn');
+  if (btn.classList.contains('spin')) return;
+  btn.classList.add('spin');
+  const before = data?.updated_at;
+  await Promise.all([load(), new Promise((r) => setTimeout(r, 500))]);
+  btn.classList.remove('spin');
+  if (!data) toast('No connection — showing your last list');
+  else if (data.updated_at !== before) toast('New jobs loaded');
+  else toast('You’re up to date');
 });
 
 /* ---------------- backup / restore ---------------- */
@@ -461,9 +657,31 @@ $('#installClose').addEventListener('click', () => {
 window.addEventListener('appinstalled', () => { $('#install').hidden = true; });
 
 /* ---------------- start ---------------- */
+// Keep the laptop filter sidebar just below the sticky header.
+const topBar = $('#top');
+const setTopH = () => document.documentElement.style.setProperty('--top-h', `${topBar.offsetHeight}px`);
+setTopH();
+if ('ResizeObserver' in window) new ResizeObserver(setTopH).observe(topBar);
+
+// The filter sheet adds a Back-button history entry; don't let going back jump the scroll.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+if (history.state?.sheet) history.replaceState(null, '');
+
+setSheetA11y();
 syncFilterUI();
+const startTab = new URLSearchParams(location.search).get('tab');   // home-screen shortcuts
+if (TABS.includes(startTab)) selectTab(startTab);
 load().then(() => setTimeout(showInstall, 1200));
 
 if ('serviceWorker' in navigator) {
+  // When a new version of the app is deployed, the new service worker takes over and we
+  // reload once so she sees it straight away (not on the next launch).
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }

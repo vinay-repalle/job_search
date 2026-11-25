@@ -49,7 +49,9 @@ Open the site link on the phone, then:
 - **Android (Chrome):** tap **Install** on the banner, or menu **⋮ → Install app / Add to Home screen**.
 - **iPhone (Safari):** **Share ⎋ → Add to Home Screen**.
 
-In the app: **Filters** (found today / 3 days / 7 days, role, remote/hybrid/office, experience, trusted sources only, hide shift jobs), **Apply ↗** opens the original posting, **☆ Save**, **Mark applied**, and the **Applied** tab tracks status (Applied → Interview → Offer). The Saved/Applied list lives on the phone; use **Back up list** at the bottom now and then.
+In the app: the **Jobs** tab is grouped by the day each job was found — this morning's arrivals sit on top under **NEW · New today**, earlier days stay below. **Filters** (found today / 3 days / 7 days, role, remote/hybrid/office, experience, trusted sources only, hide shift jobs) open as a bottom sheet on the phone (tap outside, swipe down or press Back to close) and as a sidebar on a laptop. **Apply ↗** opens the original posting, **☆ Save**, **Mark applied**, and the **Applied** tab tracks status (Applied → Interview → Offer). Actions that lose data (**Remove** from Applied, un-marking an applied job) need a second tap to confirm. The Saved/Applied list lives on the phone; use **Back up list** at the bottom now and then.
+
+> After changing `docs/index.html`, `app.js` or `styles.css`, bump `CACHE` in `docs/sw.js` (e.g. `qa-jobs-v2` → `qa-jobs-v3`) so installed phones switch to the new version on their next open.
 
 ## Changing what it searches
 
