@@ -13,9 +13,9 @@ on:
         description: "Send the daily digest (Telegram + email)"
         type: boolean
         default: true
-  push:                            # website edits → redeploy only (no job fetch, no message)
+  push:                            # website / workflow edits → redeploy only (no job fetch, no message)
     branches: [main]
-    paths: ["docs/**", "!docs/data/**"]
+    paths: ["docs/**", "!docs/data/**", ".github/workflows/daily-jobs.yml"]
 
 permissions:
   contents: write                  # commit docs/data/jobs.json
@@ -27,27 +27,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # On a push this job still runs but skips its steps, so "deploy" always follows a finished job.
+  # (When the whole job was skipped on pushes, deploy-pages couldn't find the uploaded site.)
   fetch:
-    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
+      - name: Website-only push — skip the job search
+        if: github.event_name == 'push'
+        run: echo "Website/workflow edit pushed — redeploying the site only (no job search, no alerts)."
+
       - uses: actions/checkout@v5
+        if: github.event_name != 'push'
 
       - uses: actions/setup-python@v6
+        if: github.event_name != 'push'
         with:
           python-version: "3.12"
           cache: pip
 
       - run: pip install -r requirements.txt
+        if: github.event_name != 'push'
 
       - name: Fetch and filter jobs
+        if: github.event_name != 'push'
         env:
           RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
           MAX_AGE_DAYS: ${{ inputs.max_age_days }}
         run: python scripts/fetch_jobs.py
 
       - name: Save jobs.json to the repo
+        if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -69,8 +79,7 @@ jobs:
         run: python scripts/notify.py --failure "today's job search run failed"
 
   deploy:
-    needs: fetch
-    if: always() && (needs.fetch.result == 'success' || needs.fetch.result == 'skipped')
+    needs: fetch                   # runs only when fetch finished OK (on a push it finishes in seconds)
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -90,13 +99,13 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - uses: actions/setup-python@v6
-        if: needs.fetch.result == 'success'
+        if: github.event_name == 'schedule' || inputs.send_digest
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Send daily digest (Telegram + email)
-        if: needs.fetch.result == 'success' && (github.event_name == 'schedule' || inputs.send_digest)
+        if: github.event_name == 'schedule' || inputs.send_digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           QA_JOB_SEARCH_TELEGRAM_CHAT_ID: ${{ secrets.QA_JOB_SEARCH_TELEGRAM_CHAT_ID }}
