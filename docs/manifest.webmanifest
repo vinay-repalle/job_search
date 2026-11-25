@@ -19,6 +19,7 @@
   ],
   "shortcuts": [
     { "name": "Saved jobs", "short_name": "Saved", "url": "./?tab=saved", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Applied jobs", "short_name": "Applied", "url": "./?tab=applied", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Applied jobs", "short_name": "Applied", "url": "./?tab=applied", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "My details", "short_name": "My details", "url": "./?tab=details", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

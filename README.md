@@ -49,7 +49,15 @@ Open the site link on the phone, then:
 - **Android (Chrome):** tap **Install** on the banner, or menu **⋮ → Install app / Add to Home screen**.
 - **iPhone (Safari):** **Share ⎋ → Add to Home Screen**.
 
-In the app: the **Jobs** tab is grouped by the day each job was found — this morning's arrivals sit on top under **NEW · New today**, earlier days stay below. **Filters** (found today / 3 days / 7 days, role, remote/hybrid/office, experience, trusted sources only, hide shift jobs) open as a bottom sheet on the phone (tap outside, swipe down or press Back to close) and as a sidebar on a laptop. **Apply ↗** opens the original posting, **☆ Save**, **Mark applied**, and the **Applied** tab tracks status (Applied → Interview → Offer). Actions that lose data (**Remove** from Applied, un-marking an applied job) need a second tap to confirm. The Saved/Applied list lives on the phone; use **Back up list** at the bottom now and then.
+In the app: the **Jobs** tab is grouped by the day each job was found — this morning's arrivals sit on top under **NEW · New today**, earlier days stay below. **Filters** (found today / 3 days / 7 days, role, remote/hybrid/office, experience, trusted sources only, hide shift jobs) open as a bottom sheet on the phone (tap outside, swipe down or press Back to close) and as a sidebar on a laptop. **Apply ↗** opens the original posting, **☆ Save**, **Mark applied**, and the **Applied** tab tracks status (Applied → Interview → Offer). Actions that lose data (**Remove** from Applied, un-marking an applied job, un-saving a job that has a note) need a second tap to confirm.
+
+- **★ Good match** marks jobs that need 3+ of her skills (`my_skills`), or any CSV/validation role using at least one of them. The job must also ask ≤ 3 years, have no night shifts, and not be an automation-only title. Good matches come first within each day, and there's an **Only good matches** filter.
+- **Share** (icon on each card) opens the phone's share sheet (WhatsApp etc.). On a laptop it copies the job and link instead.
+- **Notes** on Saved / Applied jobs (recruiter name, interview date, which resume she sent). They save as she types.
+- **Follow-up reminders:** an application still marked *Applied* with no reply after 7 days shows a nudge and puts a red dot on the Applied tab. **I followed up** restarts the 7-day clock.
+- **My details** tab: answers job forms keep asking (experience, CTC, notice period, LinkedIn, About me…), each with a **Copy** button, plus her own custom questions.
+
+Saved/Applied, notes and My details live on the phone only; use **Back up list** at the bottom now and then (the backup includes all of them).
 
 > After changing `docs/index.html`, `app.js` or `styles.css`, bump `CACHE` in `docs/sw.js` (e.g. `qa-jobs-v2` → `qa-jobs-v3`) so installed phones switch to the new version on their next open.
 
