@@ -3,7 +3,7 @@
 
   "max_age_days": 3,
   "retention_days": 30,
-  "telegram_top_n": 10,
+  "email_top_n": 10,
 
   "experience": {
     "_help": "Drop jobs whose MINIMUM required experience is above this. Jobs that don't mention experience are kept.",

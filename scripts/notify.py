@@ -1,15 +1,12 @@
-"""Send the daily digest built from docs/data/jobs.json — by Telegram and/or email.
+"""Send the daily email digest built from docs/data/jobs.json.
 
-Each channel is used only when its settings are present (see .env.example):
-    Telegram: TELEGRAM_BOT_TOKEN + QA_JOB_SEARCH_TELEGRAM_CHAT_ID
-    Email:    SMTP_USER + SMTP_PASSWORD (Gmail App Password) + EMAIL_TO, optional EMAIL_BCC
+Settings (see .env.example): SMTP_USER + SMTP_PASSWORD (Gmail App Password) + EMAIL_TO, optional EMAIL_BCC.
 
 Usage:
-    python scripts/notify.py                   # send today's digest on every channel that is set up
-    python scripts/notify.py --only email      # just one channel (telegram | email)
-    python scripts/notify.py --preview         # print the messages instead of sending (email HTML saved to a temp file)
-    python scripts/notify.py --test            # marked as a test; the email goes ONLY to you (EMAIL_BCC, else SMTP_USER)
-    python scripts/notify.py --failure "msg"   # short 'run failed' alert (email: to EMAIL_BCC only, never to her)
+    python scripts/notify.py                   # send today's digest
+    python scripts/notify.py --preview         # print it instead of sending (HTML saved to a temp file)
+    python scripts/notify.py --test            # marked as a test; goes ONLY to the maintainer (EMAIL_BCC, else SMTP_USER)
+    python scripts/notify.py --failure "msg"   # short 'run failed' alert, to EMAIL_BCC only
 """
 from __future__ import annotations
 
@@ -31,7 +28,6 @@ import requests
 
 from common import CONFIG_DIR, JOBS_FILE, app_url, load_env, load_json
 
-TELEGRAM_LIMIT = 4000   # Telegram allows 4096 characters; keep a margin
 AUTOMATION_TITLE = re.compile(r"automation|sdet|selenium|playwright|cypress|appium", re.I)   # as in filters.py
 
 
@@ -67,77 +63,6 @@ def is_good_match(job: dict, my_skills: set[str]) -> bool:
 def meta_line(job: dict) -> str:
     mode = job["mode"] if job.get("mode") != "Not stated" else ""
     return " · ".join(x for x in (job.get("location"), mode, job.get("exp_text")) if x)
-
-
-# ------------------------------------------------------------------ Telegram
-def build_digest(data: dict, top_n: int, test: bool) -> str:
-    run = data.get("run") or {}
-    labels = data.get("groups") or {}
-    fresh = new_jobs(data)
-    head = f"🔎 <b>QA Job Alerts</b> · {run_day(run)}" + ("  <i>(test run)</i>" if test else "")
-
-    def render(n: int) -> str:
-        lines = [head]
-        if fresh:
-            counts = Counter(j["group"] for j in fresh)
-            lines.append(f"<b>{len(fresh)} new job{'s' if len(fresh) != 1 else ''}</b> · "
-                         + " · ".join(f"{esc(labels.get(g, g))} {c}" for g, c in counts.most_common()))
-            for i, j in enumerate(fresh[:n], 1):
-                badge = "✅ Company site" if j["trust"] == "company" else f"🔗 {esc(j['source'])}"
-                shift = "  ⚠️ shifts" if j.get("shift") else ""
-                lines.append(
-                    f"\n{i}. <b>{esc(j['title'])}</b>\n"
-                    f"🏢 {esc(j['company'])}\n"
-                    f"📍 {esc(meta_line(j))}{shift}\n"
-                    f"{badge} · <a href=\"{esc(j['apply_url'])}\">Apply</a>")
-            if len(fresh) > n:
-                lines.append(f"\n…and {len(fresh) - n} more in the app.")
-        else:
-            lines.append("No new matching jobs today. The app still has the recent openings.")
-        lines.append(f"\n📱 <a href=\"{esc(app_url())}\">Open the app</a> to filter, save and track applications")
-        notes = []
-        if run.get("errors"):
-            notes.append(f"{len(run['errors'])} source(s) didn't respond today")
-        left = run.get("jsearch_calls_left")
-        if isinstance(left, int) and left < 25:
-            notes.append(f"JSearch free calls left this month: {left}")
-        if notes:
-            lines.append("<i>Note: " + esc("; ".join(notes)) + "</i>")
-        return "\n".join(lines)
-
-    n = top_n
-    text = render(n)
-    while len(text) > TELEGRAM_LIMIT and n > 1:
-        n -= 1
-        text = render(n)
-    return text
-
-
-def send_telegram(text: str) -> bool | None:
-    """True = sent, False = failed, None = Telegram isn't set up."""
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("QA_JOB_SEARCH_TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        print("Telegram not set up (TELEGRAM_BOT_TOKEN / QA_JOB_SEARCH_TELEGRAM_CHAT_ID) — skipped.")
-        return None
-    try:
-        r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30, json={
-            "chat_id": chat_id, "text": text, "parse_mode": "HTML",
-            "link_preview_options": {"is_disabled": True},
-        })
-        res = r.json()
-    except (requests.RequestException, ValueError) as e:
-        print(f"Could not reach Telegram ({e.__class__.__name__}).")   # never print the URL: it holds the token
-        return False
-    if res.get("ok"):
-        print("Telegram message sent.")
-        return True
-    new_id = (res.get("parameters") or {}).get("migrate_to_chat_id")
-    if new_id:
-        print(f"The group was upgraded by Telegram. New chat id: {new_id} — update QA_JOB_SEARCH_TELEGRAM_CHAT_ID.")
-    else:
-        print(f"Telegram refused the message: {res.get('description')}")
-    return False
 
 
 # ------------------------------------------------------------------ email
@@ -239,7 +164,7 @@ def build_email(data: dict, top_n: int, test: bool) -> tuple[str, str, str] | No
           <a href="{esc(app)}" style="display:inline-block;border:1px solid {C['accent']};color:{C['accent']};text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px">Open the app to filter, save &amp; track</a>
         </td></tr>
         <tr><td style="font-size:12px;line-height:1.5;color:{C['muted']};text-align:center">
-          Sent every morning by your QA Jobs app when new openings are found.<br>A real employer never asks you to pay a fee.
+          Sent daily by your QA Jobs app when new openings are found.<br>A real employer never asks you to pay a fee.
         </td></tr>
       </table>
     </td></tr>
@@ -263,12 +188,12 @@ def send_email(mail: tuple[str, str, str | None] | None, *, test: bool = False,
     if not user or not password or not (to or bcc):
         print("Email not set up (SMTP_USER / SMTP_PASSWORD / EMAIL_TO) — skipped.")
         return None
-    if maintainer_only:                       # failure alerts are for you, not for her
+    if maintainer_only:                       # failure alerts are for the maintainer only
         if not bcc:
             print("EMAIL_BCC not set — failure alert not emailed.")
             return None
         to, bcc = bcc, []
-    elif test:                                # tests never reach her inbox
+    elif test:                                # tests never reach the recipient's inbox
         to, bcc = (bcc or [user]), []
     if mail is None:
         print("No new jobs today — no email sent.")
@@ -304,7 +229,7 @@ def send_email(mail: tuple[str, str, str | None] | None, *, test: bool = False,
     except (smtplib.SMTPException, OSError) as e:
         print(f"Could not send the email ({e.__class__.__name__}).")
         return False
-    who = "you only (test)" if test else plural(len(to) + len(bcc), "recipient")
+    who = "the maintainer only (test)" if test else plural(len(to) + len(bcc), "recipient")
     print(f"Email sent to {who}.")
     return True
 
@@ -312,53 +237,37 @@ def send_email(mail: tuple[str, str, str | None] | None, *, test: bool = False,
 # ------------------------------------------------------------------ main
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--preview", action="store_true", help="print the messages instead of sending")
-    ap.add_argument("--test", action="store_true", help="mark as a test; email goes only to you")
-    ap.add_argument("--only", choices=("telegram", "email"), help="use just this channel")
+    ap.add_argument("--preview", action="store_true", help="print the email instead of sending it")
+    ap.add_argument("--test", action="store_true", help="mark as a test; goes only to the maintainer")
     ap.add_argument("--failure", metavar="TEXT", help="send a short failure alert instead of the digest")
     args = ap.parse_args()
     load_env()
-    channels = [args.only] if args.only else ["telegram", "email"]
 
     if args.failure is not None:
         reason = args.failure or "today’s run failed"
-        tg_text = (f"⚠️ <b>QA Job Alerts</b>: {esc(reason)}.\n"
-                   f"Check GitHub → Actions for details. The app still shows the previous jobs.")
         mail = (f"⚠ QA Jobs: {reason}",
-                f"QA Jobs: {reason}.\nCheck GitHub → Actions for details. The app still shows the previous jobs.\n", None)
+                f"QA Jobs: {reason}.\nCheck GitHub → Actions for details. The app may still show older jobs.\n", None)
     else:
         data = load_json(JOBS_FILE, None)
         if not data:
             print("docs/data/jobs.json not found — run scripts/fetch_jobs.py first.")
             return 1
         cfg = load_json(CONFIG_DIR / "search.json", {}) or {}
-        tg_text = build_digest(data, cfg.get("telegram_top_n", 10), args.test)
         mail = build_email(data, cfg.get("email_top_n", 10), args.test)
 
     if args.preview:
-        if "telegram" in channels:
-            print("===== Telegram =====\n" + tg_text + "\n")
-        if "email" in channels:
-            if mail is None:
-                print("===== Email =====\n(no email today — no new jobs)")
-            else:
-                print(f"===== Email =====\nSubject: {mail[0]}\n\n{mail[1]}")
-                if mail[2]:
-                    out = Path(tempfile.gettempdir()) / "qa-jobs-email-preview.html"
-                    out.write_text(mail[2], encoding="utf-8")
-                    print(f"HTML version saved to {out} — open it in a browser.")
+        if mail is None:
+            print("(no email today — no new jobs)")
+        else:
+            print(f"Subject: {mail[0]}\n\n{mail[1]}")
+            if mail[2]:
+                out = Path(tempfile.gettempdir()) / "qa-jobs-email-preview.html"
+                out.write_text(mail[2], encoding="utf-8")
+                print(f"HTML version saved to {out} — open it in a browser.")
         return 0
 
-    results = []
-    if "telegram" in channels:
-        results.append(send_telegram(tg_text))
-    if "email" in channels:
-        results.append(send_email(mail, test=args.test, maintainer_only=args.failure is not None))
-    tried = [r for r in results if r is not None]
-    if not tried:
-        print("No alert channel is set up — nothing sent.")
-        return 1
-    return 0 if all(tried) else 1
+    sent = send_email(mail, test=args.test, maintainer_only=args.failure is not None)
+    return 0 if sent else 1      # "not set up" counts as a failure, so the run shows red
 
 
 if __name__ == "__main__":

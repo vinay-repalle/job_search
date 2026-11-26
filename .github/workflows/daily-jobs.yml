@@ -10,7 +10,7 @@ on:
         required: false
         default: "3"
       send_digest:
-        description: "Send the daily digest (Telegram + email)"
+        description: "Send the daily email digest"
         type: boolean
         default: true
   push:                            # website / workflow edits → redeploy only (no job fetch, no message)
@@ -27,8 +27,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # On a push this job still runs but skips its steps, so "deploy" always follows a finished job.
-  # (When the whole job was skipped on pushes, deploy-pages couldn't find the uploaded site.)
+  # fetch → build → deploy → email. "alert" runs only if one of the first three fails.
+  # On a push, fetch still runs but skips its steps, so the jobs after it are never skipped.
   fetch:
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -67,23 +67,9 @@ jobs:
           git pull --rebase origin main
           git push
 
-      - name: Alert if the run failed (Telegram + email to EMAIL_BCC only)
-        if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          QA_JOB_SEARCH_TELEGRAM_CHAT_ID: ${{ secrets.QA_JOB_SEARCH_TELEGRAM_CHAT_ID }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          EMAIL_BCC: ${{ secrets.EMAIL_BCC }}
-        run: python scripts/notify.py --failure "today's job search run failed"
-
-  deploy:
-    needs: fetch                   # runs only when fetch finished OK (on a push it finishes in seconds)
+  build:
+    needs: fetch                   # on a push, fetch finishes in seconds
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -95,24 +81,63 @@ jobs:
         with:
           path: docs
 
+  # Kept apart from "build": deploying in the same job as the upload failed with "No artifacts named github-pages".
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
 
+  email:
+    needs: [fetch, deploy]         # waits for the website, but is sent even if the website update failed
+    if: ${{ !cancelled() && needs.fetch.result == 'success' && (github.event_name == 'schedule' || inputs.send_digest) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
       - uses: actions/setup-python@v6
-        if: github.event_name == 'schedule' || inputs.send_digest
         with:
           python-version: "3.12"
           cache: pip
 
-      - name: Send daily digest (Telegram + email)
-        if: github.event_name == 'schedule' || inputs.send_digest
+      - run: pip install -r requirements.txt
+
+      - name: Send the daily email digest
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          QA_JOB_SEARCH_TELEGRAM_CHAT_ID: ${{ secrets.QA_JOB_SEARCH_TELEGRAM_CHAT_ID }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_BCC: ${{ secrets.EMAIL_BCC }}
-        run: |
-          pip install -r requirements.txt
-          python scripts/notify.py
+        run: python scripts/notify.py
+
+  alert:
+    needs: [fetch, build, deploy, email]
+    if: ${{ !cancelled() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Email a failure alert (to EMAIL_BCC only)
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_BCC: ${{ secrets.EMAIL_BCC }}
+          REASON: >-
+            ${{ needs.fetch.result == 'failure' && 'the job search failed'
+            || needs.email.result == 'failure' && 'the daily email failed'
+            || 'the website update failed' }}
+        run: python scripts/notify.py --failure "$REASON"

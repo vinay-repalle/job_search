@@ -126,8 +126,8 @@ function renderHeader() {
 }
 
 /* ---------------- good match ---------------- */
-// A job is a good match when it needs several of her skills (or is a CSV/validation role,
-// where her pharma background counts), asks ≤ 3 years, has no night shifts, and isn't automation-only.
+// A job is a good match when it needs several of the user's skills (or is a CSV/validation role,
+// where a pharma background counts), asks ≤ 3 years, has no night shifts, and isn't automation-only.
 function matchInfo(j) {
   const mine = (j.skills || []).filter((s) => mySkills.has(s));
   const title = j.title || '';
@@ -421,7 +421,7 @@ function render({ force = false } = {}) {
   renderNotice(visible);
 
   if (tab === 'details') {
-    // Don't rebuild while she's typing (e.g. a background refresh) — only on first show or when fields change.
+    // Don't rebuild while the user is typing (e.g. a background refresh) — only on first show or when fields change.
     if (force || !$('.details-page', list)) list.innerHTML = detailsPage();
     return;
   }
@@ -507,7 +507,7 @@ async function shareJob(id) {
       await navigator.share({ title: `${j.title} — ${j.company}`, text, url });
       return;
     } catch (e) {
-      if (e?.name === 'AbortError') return;   // she closed the share sheet
+      if (e?.name === 'AbortError') return;   // the share sheet was closed
     }
   }
   const ok = await copyText(`${text}\n${url}`);
@@ -526,7 +526,7 @@ function setStatus(id, status) {
   } else {
     const prev = tracker[id] || {};
     tracker[id] = {
-      ...prev,                      // keeps her note and follow-up date
+      ...prev,                      // keeps the note and follow-up date
       status,
       at: Date.now(),
       applied_at: APPLIED_STATES.includes(status) ? (prev.applied_at || Date.now()) : prev.applied_at,
@@ -568,7 +568,7 @@ function onListClick(e) {
   const t = tracker[id];
   switch (el.dataset.act) {
     case 'apply':
-      pendingApply = id;            // ask "did you apply?" when she comes back
+      pendingApply = id;            // ask "did you apply?" when the user comes back
       break;
     case 'save':
       if (APPLIED_STATES.includes(t?.status)) return;
@@ -986,7 +986,7 @@ load().then(() => setTimeout(showInstall, 1200));
 
 if ('serviceWorker' in navigator) {
   // When a new version of the app is deployed, the new service worker takes over and we
-  // reload once so she sees it straight away (not on the next launch).
+  // reload once so it shows straight away (not on the next launch).
   const hadController = Boolean(navigator.serviceWorker.controller);
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
